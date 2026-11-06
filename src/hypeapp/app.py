@@ -1,15 +1,14 @@
 import toga
 from toga.style import Pack
 from toga.style.pack import COLUMN
-import threading
+import asyncio
 import json
 import ssl
-import websocket
-import time
-import traceback
+import websockets
 
 class HypeApp(toga.App):
     def startup(self):
+        # UI Layout
         main_box = toga.Box(style=Pack(direction=COLUMN, padding=20))
         
         title_label = toga.Label(
@@ -50,52 +49,48 @@ class HypeApp(toga.App):
         self.main_window.show()
 
         self.is_running = False
-        self.ws = None
-        self.token = ""
+        self.ws_task = None
 
-    # SAFE UI UPDATER (Prevents crashes on Android)
     def update_ui(self, text):
+        # Safely update UI from async task
         self.loop.call_soon_threadsafe(lambda: setattr(self.status_label, 'text', text))
 
     def start_status(self, widget):
-        self.token = self.token_input.value.strip()
-        if not self.token:
+        token = self.token_input.value.strip()
+        if not token:
             self.update_ui("Error: Token required")
             return
             
         self.is_running = True
         self.update_ui("Connecting...")
         
-        threading.Thread(target=self.run_ws, daemon=True).start()
+        # Start the async websocket task
+        self.ws_task = self.loop.create_task(self.run_ws(token))
 
     def stop_status(self, widget):
         self.is_running = False
-        if self.ws:
-            self.ws.close()
+        if self.ws_task:
+            self.ws_task.cancel()
         self.update_ui("Status: Offline")
 
-    def run_ws(self):
-        try:
-            url = "wss://gateway.discord.gg/?v=10&encoding=json"
-            self.ws = websocket.WebSocketApp(
-                url,
-                on_message=self.on_message,
-                on_error=self.on_error,
-                on_close=self.on_close
-            )
-            self.ws.run_forever(sslopt={"cert_reqs": ssl.CERT_NONE})
-        except Exception as e:
-            self.update_ui(f"WS Error: {e}")
+    async def run_ws(self, token):
+        ssl_context = ssl.create_default_context()
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE
 
-    def on_message(self, ws, message):
+        url = "wss://gateway.discord.gg/?v=10&encoding=json"
+        
         try:
-            data = json.loads(message)
-            if data.get("op") == 10:
-                interval = data["d"]["heartbeat_interval"] / 1000
+            async with websockets.connect(url, ssl=ssl_context) as ws:
+                # Wait for Hello (op 10)
+                hello = json.loads(await ws.recv())
+                interval = hello["d"]["heartbeat_interval"] / 1000
+                
+                # Send Identify (op 2)
                 identify = {
                     "op": 2,
                     "d": {
-                        "token": self.token,
+                        "token": token,
                         "properties": {
                             "$os": "android", 
                             "$browser": "Discord VR", 
@@ -108,24 +103,22 @@ class HypeApp(toga.App):
                         }
                     }
                 }
-                ws.send(json.dumps(identify))
+                await ws.send(json.dumps(identify))
                 self.update_ui("Status: ACTIVE (VR)")
 
-                def hb():
-                    while self.is_running:
-                        time.sleep(interval)
-                        try: ws.send(json.dumps({"op": 1, "d": None}))
-                        except: break
-                threading.Thread(target=hb, daemon=True).start()
+                # Heartbeat Loop
+                while self.is_running:
+                    await asyncio.sleep(interval)
+                    try:
+                        await ws.send(json.dumps({"op": 1, "d": None}))
+                    except:
+                        break
+                        
+        except asyncio.CancelledError:
+            pass
         except Exception as e:
-            self.update_ui(f"Msg Error: {e}")
-
-    def on_error(self, ws, error):
-        self.update_ui(f"Error: {error}")
-
-    def on_close(self, ws, close_status_code, close_msg):
-        if self.is_running:
-            self.update_ui("Disconnected")
+            self.update_ui(f"Error: {str(e)[:20]}")
+            self.is_running = False
 
 def main():
     return HypeApp("Hype App", "com.hype.app")
