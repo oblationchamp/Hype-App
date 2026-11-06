@@ -11,9 +11,8 @@ author_email = "hype@example.com"
 [tool.briefcase.app.hypeapp]
 formal_name = "Hype App"
 description = "Discord VR Status Controller"
-main_module = "hypeapp" # Fixed this line to match the package name
-sources = ["src/hypeapp"]
-test_sources = ["tests"]
+main_module = "app"  # This tells Briefcase to look for app.py directly
+sources = ["."]      # This tells Briefcase the code is in the root folder
 requires = [
     "toga",
     "websocket-client"
