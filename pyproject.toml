@@ -11,7 +11,6 @@ author_email = "hype@example.com"
 [tool.briefcase.app.hypeapp]
 formal_name = "Hype App"
 description = "Discord VR Status Controller"
-module_name = "hypeapp"
 sources = ["src/hypeapp"]
 requires = [
     "toga",
