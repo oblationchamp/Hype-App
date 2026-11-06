@@ -13,17 +13,11 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: '17'
-          java-package: jdk
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
-      - name: Install Android SDK
-        uses: android-actions/setup-android@v3
-        with:
-          cmdline-tools-version: 19.0 # Required for Briefcase
 
       - name: Install Dependencies
         run: |
@@ -35,9 +29,6 @@ jobs:
           briefcase create android
           briefcase build android
           briefcase package android --adhoc
-        env:
-          ANDROID_HOME: ${{ env.ANDROID_HOME }}
-          JAVA_HOME: ${{ env.JAVA_HOME }}
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
