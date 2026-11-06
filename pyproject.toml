@@ -4,14 +4,15 @@ bundle = "com.hype"
 version = "1.0.0"
 url = "https://github.com/hype"
 license.file = "LICENSE"
+license-files = ["LICENSE"]
 author = "Hype"
 author_email = "hype@example.com"
 
 [tool.briefcase.app.hypeapp]
 formal_name = "Hype App"
-main_module = "app"
 description = "Discord VR Status Controller"
-sources = ["."]
+main_module = "app"
+sources = ["src/hypeapp"]
 test_sources = ["tests"]
 requires = [
     "toga",
